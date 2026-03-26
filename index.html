@@ -253,6 +253,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <div class="hdr-right">
     <button class="btn btn-ghost" onclick="doExport()">↓ CSV</button>
     <button class="btn btn-ghost" onclick="window.print()">⎙ Imprimer</button>
+    <button class="btn btn-ghost" onclick="doLogout()" title="Déconnexion">⎋ Déconnexion</button>
   </div>
 </header>
 
@@ -436,12 +437,76 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 
 <div class="toast" id="toast"></div>
 
+<!-- ══ PAGE LOGIN ══ -->
+<div id="login-screen" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:10000;">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:36px 32px;width:360px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.5);">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="width:48px;height:48px;background:linear-gradient(135deg,var(--gold),var(--gold-light));border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#080e1a;margin-bottom:12px;">B</div>
+      <h2 style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;">Prévisionnel <span style="color:var(--gold-light)">Ventes</span></h2>
+      <p style="font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;">BETERBAT — Accès sécurisé</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Email</label>
+        <input id="login-email" type="email" placeholder="votre@email.com" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:9px 12px;border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Mot de passe</label>
+        <input id="login-pwd" type="password" placeholder="••••••••" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:9px 12px;border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div id="login-error" style="font-size:12px;color:var(--red);display:none;padding:8px 12px;background:var(--red-bg);border:1px solid var(--red-bd);border-radius:6px;"></div>
+      <button id="login-btn" onclick="doLogin()" style="background:linear-gradient(135deg,var(--gold),#a8792a);color:#08100a;font-weight:600;font-size:13px;font-family:'DM Sans',sans-serif;padding:10px;border:none;border-radius:7px;cursor:pointer;margin-top:4px;">
+        Se connecter
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
 document.getElementById('yr').textContent = new Date().getFullYear();
 
 const SURL = 'https://mfcabsshwymaudbkcuoc.supabase.co';
 const SKEY = 'sb_publishable_d7iSHvOystX5qHrv06I_sA_VUbVkFxC';
 const db = supabase.createClient(SURL, SKEY);
+
+/* ─── AUTH ─── */
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pwd   = document.getElementById('login-pwd').value;
+  const errEl = document.getElementById('login-error');
+  const btn   = document.getElementById('login-btn');
+  if(!email || !pwd) { showLoginError('Veuillez remplir tous les champs'); return; }
+  btn.textContent = 'Connexion…'; btn.disabled = true;
+  const { error } = await db.auth.signInWithPassword({ email, password: pwd });
+  if(error) {
+    showLoginError('Email ou mot de passe incorrect');
+    btn.textContent = 'Se connecter'; btn.disabled = false;
+  } else {
+    document.getElementById('login-screen').style.display = 'none';
+    init();
+  }
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+async function doLogout() {
+  await db.auth.signOut();
+  location.reload();
+}
+
+/* ─── VÉRIFIER SESSION AU DÉMARRAGE ─── */
+async function checkSession() {
+  const { data } = await db.auth.getSession();
+  if(data?.session) {
+    document.getElementById('login-screen').style.display = 'none';
+    init();
+  }
+  // sinon le login-screen reste visible
+}
+checkSession();
 
 const ALL_MONTHS = ['JANVIER','FÉVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOÛT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DÉCEMBRE'];
 let periodes=[], commerciaux=[], clients=[], previsions=[];
