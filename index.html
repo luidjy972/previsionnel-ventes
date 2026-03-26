@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prévisionnel Ventes — BETERBAT</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg:#1a1c22; --surface:#22252e; --surface2:#2a2e38; --border:#333844; --border2:#3d4455;
+  --gold:#c9943a; --gold-light:#e8b85a; --gold-dim:rgba(201,148,58,0.12);
+  --green:#22d369; --green-bg:rgba(34,211,105,0.08); --green-bd:rgba(34,211,105,0.25);
+  --orange:#f59c3a; --orange-bg:rgba(245,156,58,0.08); --orange-bd:rgba(245,156,58,0.25);
+  --red:#f0504a; --red-bg:rgba(240,80,74,0.08); --red-bd:rgba(240,80,74,0.25);
+  --blue:#5ba3f5; --blue-bg:rgba(91,163,245,0.08); --blue-bd:rgba(91,163,245,0.25);
+  --text:#e8edf5; --muted:#4e6080; --dim:#7a94b4; --r:10px;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column;}
+
+/* LOADER */
+#loader{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:9999;transition:opacity .4s;}
+#loader.hide{opacity:0;pointer-events:none;}
+.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* HEADER */
+.header{background:linear-gradient(160deg,#0d1726,#0f1e38,#0c1525);border-bottom:1px solid var(--border);padding:13px 22px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:100;}
+.header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.4;}
+.brand{display:flex;align-items:center;gap:11px;margin-right:28px;}
+.brand-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--gold),var(--gold-light));border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:14px;font-weight:700;color:#080e1a;}
+.brand h1{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;}
+.brand h1 span{color:var(--gold-light);}
+.brand p{font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;}
+.nav{display:flex;align-items:center;gap:2px;flex:1;}
+.nav-item{display:flex;align-items:center;gap:5px;padding:6px 13px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;color:var(--muted);transition:all .2s;user-select:none;border:1px solid transparent;}
+.nav-item:hover{color:var(--dim);background:var(--surface2);}
+.nav-item.active{color:var(--gold-light);background:var(--gold-dim);border-color:rgba(201,148,58,.2);}
+.hdr-right{display:flex;gap:7px;align-items:center;margin-left:auto;}
+
+/* STATUS */
+.status-bar{display:flex;align-items:center;gap:8px;padding:5px 22px;background:var(--surface);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+.dot.on{background:var(--green);box-shadow:0 0 6px rgba(34,211,105,.5);}
+.dot.err{background:var(--red);}
+
+/* PAGES */
+.page{display:none;flex:1;}
+.page.active{display:block;}
+
+/* BTNS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap;}
+.btn-ghost{background:transparent;color:var(--dim);border:1px solid var(--border2);}
+.btn-ghost:hover{border-color:var(--gold);color:var(--gold-light);}
+.btn-gold{background:linear-gradient(135deg,var(--gold),#a8792a);color:#08100a;font-weight:600;box-shadow:0 2px 12px rgba(201,148,58,.3);}
+.btn-gold:hover{background:linear-gradient(135deg,var(--gold-light),var(--gold));}
+.btn-sm{padding:3px 9px;font-size:11px;}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd);}
+.btn-danger:hover{background:var(--red);color:#fff;}
+.btn-status{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;font-family:'DM Sans',sans-serif;}
+.btn-status.prevu{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bd);}
+.btn-status.prevu:hover{background:var(--blue);color:#fff;}
+.btn-status.realise{background:var(--green-bg);color:var(--green);border-color:var(--green-bd);}
+.btn-status.realise:hover{background:var(--green);color:#080e1a;}
+.btn-status.reporte{background:var(--orange-bg);color:var(--orange);border-color:var(--orange-bd);}
+.btn-status.reporte:hover{background:var(--orange);color:#080e1a;}
+.btn-status.annule{background:var(--red-bg);color:var(--red);border-color:var(--red-bd);}
+.btn-status.annule:hover{background:var(--red);color:#fff;}
+
+/* PAGE HEADER */
+.page-hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 0;}
+.page-title{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;}
+.page-title span{color:var(--gold-light);}
+.page-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+
+/* SEARCH */
+.search-bar{padding:12px 22px;display:flex;gap:9px;align-items:center;}
+.search-input{flex:1;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:7px 13px;border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif;transition:border-color .15s;}
+.search-input:focus{outline:none;border-color:var(--gold);}
+.search-input::placeholder{color:var(--muted);}
+.flt{background:var(--surface2);border:1px solid var(--border2);color:var(--dim);padding:7px 11px;border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif;}
+
+/* CARDS */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:13px;padding:0 22px 24px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px;transition:border-color .2s;position:relative;overflow:hidden;}
+.card:hover{border-color:var(--border2);}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--gold);opacity:0;transition:opacity .2s;}
+.card:hover::before{opacity:.4;}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px;}
+.card-nom{font-weight:600;font-size:14px;}
+.card-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.card-actions{display:flex;gap:4px;opacity:0;transition:opacity .2s;}
+.card:hover .card-actions{opacity:1;}
+.card-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:500;letter-spacing:.04em;}
+.b-blue{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd);}
+.b-green{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+.b-orange{background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-bd);}
+.b-gray{background:rgba(255,255,255,.04);color:var(--dim);border:1px solid var(--border2);}
+.b-red{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd);}
+.card-info{font-size:11px;color:var(--dim);margin-top:6px;}
+
+/* EMPTY */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 22px;color:var(--muted);gap:10px;grid-column:1/-1;}
+.empty-icon{font-size:32px;opacity:.35;}
+.empty-title{font-size:14px;font-weight:500;color:var(--dim);}
+
+/* ── PREVISIONNEL ── */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;padding:18px 22px 0;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px 17px;position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.kpi.kb::before{background:var(--blue);}
+.kpi.kg::before{background:var(--green);}
+.kpi.ko::before{background:var(--orange);}
+.kpi.kr::before{background:var(--red);}
+.kpi-num{font-family:'Playfair Display',serif;font-size:30px;font-weight:700;line-height:1;}
+.kpi.kb .kpi-num{color:var(--blue);}
+.kpi.kg .kpi-num{color:var(--green);}
+.kpi.ko .kpi-num{color:var(--orange);}
+.kpi.kr .kpi-num{color:var(--red);}
+.kpi-lbl{margin-top:5px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;}
+
+.tabs-wrap{padding:15px 22px 0;display:flex;align-items:center;gap:3px;overflow-x:auto;scrollbar-width:none;}
+.tab{padding:7px 15px;cursor:pointer;font-size:12px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;border-radius:4px 4px 0 0;transition:all .2s;white-space:nowrap;user-select:none;letter-spacing:.05em;text-transform:uppercase;}
+.tab:hover{color:var(--dim);}
+.tab.active{color:var(--gold-light);border-bottom-color:var(--gold);}
+.tab-add{padding:5px 9px;cursor:pointer;color:var(--muted);border:1px solid var(--border2);border-radius:6px;margin-left:4px;transition:all .2s;font-size:14px;background:transparent;}
+.tab-add:hover{color:var(--gold);border-color:var(--gold);}
+
+/* ACCORDION */
+.prev-section{padding:13px 22px 28px;}
+.prev-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.prev-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;}
+
+.acc-table{width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+
+/* En-tête colonnes */
+.acc-head{background:var(--surface);border-bottom:1px solid var(--border2);}
+.acc-head th{padding:9px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);white-space:nowrap;}
+.acc-head th.tc{color:var(--dim);}
+.acc-head th.tg{color:var(--green);}
+.acc-head th.to{color:var(--orange);}
+.acc-head th.tr{color:var(--red);}
+.acc-head th.tb{color:var(--blue);}
+
+/* Ligne commercial (header accordion) */
+.com-row{background:var(--surface2);border-top:1px solid var(--border);cursor:pointer;transition:background .15s;user-select:none;}
+.com-row:hover{background:#1a2840;}
+.com-row td{padding:11px 10px;vertical-align:middle;}
+.com-row td:first-child{padding-left:16px;}
+.com-expand{font-size:11px;color:var(--muted);transition:transform .2s;display:inline-block;margin-right:8px;}
+.com-row.open .com-expand{transform:rotate(90deg);}
+.com-name{font-weight:600;font-size:13px;letter-spacing:.02em;}
+.com-badges{display:flex;gap:5px;align-items:center;}
+
+/* Ligne dossier */
+.dos-row{background:var(--surface);border-top:1px solid var(--border);transition:background .12s;display:none;}
+.dos-row.show{display:table-row;}
+.dos-row:hover{background:#0d1624;}
+.dos-row td{padding:8px 10px;vertical-align:middle;}
+.dos-row td:first-child{padding-left:30px;border-left:3px solid transparent;}
+.dos-row.prevu td:first-child{border-left-color:var(--blue);}
+.dos-row.realise td:first-child{border-left-color:var(--green);}
+.dos-row.reporte td:first-child{border-left-color:var(--orange);}
+.dos-row.annule td:first-child{border-left-color:var(--red);}
+
+.client-select{background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:6px;font-size:12px;font-family:'DM Sans',sans-serif;min-width:160px;max-width:220px;}
+.client-select:focus{outline:none;border-color:var(--gold);}
+.client-select.cli-empty{border-color:var(--red-bd);color:var(--red);}
+
+.status-group{display:flex;gap:0;border:1px solid var(--border2);border-radius:7px;overflow:hidden;}
+.radio-lbl{padding:5px 11px;border-right:1px solid var(--border2);cursor:pointer;font-size:11px;font-weight:500;font-family:'DM Sans',sans-serif;background:var(--surface2);color:var(--muted);transition:all .15s;white-space:nowrap;user-select:none;}
+.radio-lbl:last-child{border-right:none;}
+.radio-lbl input[type="radio"]{display:none;}
+.radio-lbl:hover{background:var(--border2);color:var(--text);}
+.radio-lbl.prevu.active{background:var(--blue-bg);color:var(--blue);font-weight:600;}
+.radio-lbl.realise.active{background:var(--green-bg);color:var(--green);font-weight:600;}
+.radio-lbl.reporte.active{background:var(--orange-bg);color:var(--orange);font-weight:600;}
+.radio-lbl.prevu.active::before{content:'●';margin-right:5px;color:var(--blue);}
+.radio-lbl.realise.active::before{content:'●';margin-right:5px;color:var(--green);}
+.radio-lbl.reporte.active::before{content:'●';margin-right:5px;color:var(--orange);}
+.radio-lbl.annule.active::before{content:'●';margin-right:5px;color:var(--red);}
+
+/* Ligne ajouter dossier */
+.add-dos-row{background:var(--surface);border-top:1px solid var(--border);display:none;}
+.add-dos-row.show{display:table-row;}
+.add-dos-row td{padding:6px 10px 8px 30px;}
+.add-dos-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:6px;border:1px dashed var(--border2);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
+.add-dos-btn:hover{border-color:var(--gold);color:var(--gold-light);}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(4,8,18,.85);display:none;align-items:center;justify-content:center;z-index:500;backdrop-filter:blur(4px);}
+.overlay.on{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:24px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:pop .2s ease;}
+@keyframes pop{from{transform:scale(.96);opacity:0;}to{transform:scale(1);opacity:1;}}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;}
+.modal-head h3{font-family:'Playfair Display',serif;font-size:17px;color:var(--gold-light);}
+.modal-x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:17px;padding:0 3px;transition:color .15s;}
+.modal-x:hover{color:var(--text);}
+.fsec{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:14px 0 7px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px;}
+.frow.full{grid-template-columns:1fr;}
+.fg{display:flex;flex-direction:column;gap:3px;}
+.fg label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+.fi,.fs{background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:7px 10px;border-radius:7px;font-size:12px;font-family:'DM Sans',sans-serif;transition:border-color .15s;width:100%;}
+.fi:focus,.fs:focus{outline:none;border-color:var(--gold);}
+.fi::placeholder{color:var(--muted);opacity:.6;}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);}
+
+/* MONTH MODAL */
+.month-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:16px;}
+.m-opt{padding:8px 5px;background:var(--surface2);border:1px solid var(--border2);border-radius:7px;cursor:pointer;text-align:center;font-size:11px;font-weight:500;transition:all .15s;color:var(--dim);text-transform:uppercase;}
+.m-opt:hover{border-color:var(--gold);color:var(--gold);}
+.m-opt.sel{background:var(--gold-dim);border-color:var(--gold);color:var(--gold-light);}
+.m-opt.used{opacity:.22;pointer-events:none;}
+
+/* CONFIRM */
+.confirm-box{background:var(--surface);border:1px solid var(--red-bd);border-radius:12px;padding:22px;width:320px;text-align:center;}
+.confirm-box h4{font-size:15px;margin-bottom:7px;}
+.confirm-box p{font-size:12px;color:var(--muted);margin-bottom:16px;}
+.confirm-actions{display:flex;gap:8px;justify-content:center;}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:9px 15px;font-size:12px;z-index:9999;transform:translateY(10px);opacity:0;transition:all .25s;pointer-events:none;max-width:300px;}
+.toast.on{transform:translateY(0);opacity:1;}
+
+/* FOOTER */
+.footer{padding:9px 22px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:auto;}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="spinner"></div>
+  <span style="color:var(--muted);font-size:12px">Connexion à Supabase…</span>
+</div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="brand">
+    <div class="brand-icon">B</div>
+    <div>
+      <h1>Prévisionnel <span>Ventes</span></h1>
+      <p>BETERBAT</p>
+    </div>
+  </div>
+  <nav class="nav">
+    <div class="nav-item active" data-page="prev" onclick="goPage('prev')">📊 Prévisionnel</div>
+    <div class="nav-item" data-page="clients" onclick="goPage('clients')">👥 Clients</div>
+    <div class="nav-item" data-page="commerciaux" onclick="goPage('commerciaux')">🏷️ Commerciaux</div>
+  </nav>
+  <div class="hdr-right">
+    <button class="btn btn-ghost" onclick="doExport()">↓ CSV</button>
+    <button class="btn btn-ghost" onclick="window.print()">⎙ Imprimer</button>
+  </div>
+</header>
+
+<div class="status-bar">
+  <div class="dot" id="sdot"></div>
+  <span id="stxt">Connexion…</span>
+</div>
+
+<!-- ══ PAGE PREVISIONNEL ══ -->
+<div class="page active" id="page-prev">
+  <div class="kpis" id="kpis"></div>
+  <div class="tabs-wrap" id="tabs"></div>
+  <div class="prev-section">
+    <div class="prev-toolbar">
+      <span class="prev-title" id="prev-title"></span>
+      <button class="btn btn-ghost btn-sm" onclick="toggleAll()">Tout déplier / replier</button>
+    </div>
+    <table class="acc-table">
+      <thead class="acc-head">
+        <tr>
+          <th class="tc" style="width:170px">Commercial</th>
+          <th class="tb" style="width:200px">Client</th>
+          <th class="to" style="width:130px">Report M-1</th>
+          <th style="width:190px">Statut</th>
+          <th style="width:80px"></th>
+        </tr>
+      </thead>
+      <tbody id="acc-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ PAGE CLIENTS ══ -->
+<div class="page" id="page-clients">
+  <div class="page-hdr">
+    <div>
+      <div class="page-title">Gestion des <span>clients</span></div>
+      <div class="page-sub" id="cli-count">—</div>
+    </div>
+    <button class="btn btn-gold" onclick="openModalClient()">+ Nouveau client</button>
+  </div>
+  <div class="search-bar">
+    <input class="search-input" id="s-cli" placeholder="🔍  Rechercher…" oninput="filterClients()">
+    <select class="flt" id="f-src" onchange="filterClients()">
+      <option value="">Toutes sources</option>
+      <option value="direct">Direct</option>
+      <option value="agence_partenaire">Agence partenaire</option>
+      <option value="recommandation">Recommandation</option>
+      <option value="porte_ouverte">Porte ouverte</option>
+      <option value="web">Web</option>
+      <option value="keldom">Keldom</option>
+    </select>
+    <select class="flt" id="f-typ" onchange="filterClients()">
+      <option value="">Tous types</option>
+      <option value="particulier">Particulier</option>
+      <option value="sci">SCI</option>
+      <option value="investisseur">Investisseur</option>
+      <option value="entreprise">Entreprise</option>
+    </select>
+  </div>
+  <div class="cards-grid" id="cli-grid"></div>
+</div>
+
+<!-- ══ PAGE COMMERCIAUX ══ -->
+<div class="page" id="page-commerciaux">
+  <div class="page-hdr">
+    <div>
+      <div class="page-title">Équipe <span>commerciale</span></div>
+      <div class="page-sub" id="com-count">—</div>
+    </div>
+    <button class="btn btn-gold" onclick="openModalCom()">+ Nouveau commercial</button>
+  </div>
+  <div class="search-bar">
+    <input class="search-input" id="s-com" placeholder="🔍  Rechercher…" oninput="filterCom()">
+  </div>
+  <div class="cards-grid" id="com-grid"></div>
+</div>
+
+<footer class="footer">
+  <span id="ftxt">Connecté à Supabase</span>
+  <span>BETERBAT &copy; <span id="yr"></span></span>
+</footer>
+
+<!-- ══ MODAL CLIENT ══ -->
+<div class="overlay" id="ov-cli">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="cli-modal-title">Nouveau client</h3>
+      <button class="modal-x" onclick="closeModalClient()">✕</button>
+    </div>
+    <input type="hidden" id="cli-id">
+    <div class="fsec">Identité</div>
+    <div class="frow full"><div class="fg"><label>Nom complet *</label><input class="fi" id="cli-nom" placeholder="ex: MARTIN Jean-Pierre"></div></div>
+    <div class="frow">
+      <div class="fg"><label>Téléphone</label><input class="fi" id="cli-tel" placeholder="0696 XX XX XX"></div>
+      <div class="fg"><label>Email</label><input class="fi" id="cli-email" placeholder="email@exemple.com"></div>
+    </div>
+    <div class="fsec">Qualification</div>
+    <div class="frow">
+      <div class="fg"><label>Type</label>
+        <select class="fs" id="cli-type">
+          <option value="particulier">Particulier</option><option value="sci">SCI</option>
+          <option value="investisseur">Investisseur</option><option value="entreprise">Entreprise</option><option value="autre">Autre</option>
+        </select>
+      </div>
+      <div class="fg"><label>Source</label>
+        <select class="fs" id="cli-src">
+          <option value="direct">Direct</option><option value="agence_partenaire">Agence partenaire</option>
+          <option value="recommandation">Recommandation</option><option value="porte_ouverte">Porte ouverte</option>
+          <option value="web">Web</option><option value="keldom">Keldom</option><option value="autre">Autre</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow full"><div class="fg"><label>Agence partenaire</label><input class="fi" id="cli-agence" placeholder="AFDI, ImmoCaraïbes, IAD…"></div></div>
+    <div class="frow full"><div class="fg"><label>Commercial référent</label>
+      <select class="fs" id="cli-commercial">
+        <option value="">— Aucun —</option>
+      </select>
+    </div></div>
+    <div class="frow full"><div class="fg"><label>Projet recherché</label><input class="fi" id="cli-projet" placeholder="ex: T3 Domaine du Diamant 2, budget 250k"></div></div>
+    <div class="frow full"><div class="fg"><label>Notes</label><input class="fi" id="cli-notes" placeholder="Informations complémentaires…"></div></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModalClient()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveClient()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL COMMERCIAL ══ -->
+<div class="overlay" id="ov-com">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="com-modal-title">Nouveau commercial</h3>
+      <button class="modal-x" onclick="closeModalCom()">✕</button>
+    </div>
+    <input type="hidden" id="com-id">
+    <div class="frow full"><div class="fg"><label>Nom *</label><input class="fi" id="com-nom" placeholder="Nom de famille"></div></div>
+    <div class="frow">
+      <div class="fg"><label>Prénom</label><input class="fi" id="com-prenom"></div>
+      <div class="fg"><label>Téléphone</label><input class="fi" id="com-tel"></div>
+    </div>
+    <div class="frow full"><div class="fg"><label>Email</label><input class="fi" id="com-email"></div></div>
+    <div class="frow full"><div class="fg"><label>Agence / structure</label><input class="fi" id="com-agence" placeholder="ex: Indépendant, AFDI, IAD…"></div></div>
+    <div class="frow full"><div class="fg"><label>Statut</label>
+      <select class="fs" id="com-actif"><option value="true">Actif</option><option value="false">Inactif</option></select>
+    </div></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModalCom()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveCom()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL MOIS ══ -->
+<div class="overlay" id="ov-mois">
+  <div class="modal" style="width:360px">
+    <div class="modal-head">
+      <h3>Ajouter un mois</h3>
+      <button class="modal-x" onclick="closeModalMois()">✕</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:13px">Le report M-1 sera automatiquement récupéré.</p>
+    <div class="month-grid" id="month-grid"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModalMois()">Annuler</button>
+      <button class="btn btn-gold" onclick="confirmMois()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONFIRM ══ -->
+<div class="overlay" id="ov-confirm">
+  <div class="confirm-box">
+    <h4>Confirmer</h4>
+    <p id="confirm-msg">Cette action est irréversible.</p>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>
+      <button class="btn btn-danger" id="confirm-ok">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+document.getElementById('yr').textContent = new Date().getFullYear();
+
+const SURL = 'https://mfcabsshwymaudbkcuoc.supabase.co';
+const SKEY = 'sb_publishable_d7iSHvOystX5qHrv06I_sA_VUbVkFxC';
+const db = supabase.createClient(SURL, SKEY);
+
+const ALL_MONTHS = ['JANVIER','FÉVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOÛT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DÉCEMBRE'];
+let periodes=[], commerciaux=[], clients=[], previsions=[];
+let curPerId=null, curPage='prev';
+let selMois=null, confirmCB=null, openRows=new Set();
+
+/* ─── NAV ─── */
+function goPage(p) {
+  curPage=p;
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  document.querySelector(`[data-page="${p}"]`).classList.add('active');
+  if(p==='clients') renderCliGrid();
+  if(p==='commerciaux') renderComGrid();
+}
+
+/* ─── INIT ─── */
+async function init() {
+  try {
+    const [rP,rC,rCl,rPr] = await Promise.all([
+      db.from('periodes').select('*').order('annee').order('mois'),
+      db.from('commerciaux').select('*').order('nom'),
+      db.from('clients').select('*').order('nom_complet'),
+      db.from('previsions').select('*')
+    ]);
+    if(rP.error) throw rP.error;
+    periodes=rP.data||[]; commerciaux=rC.data||[];
+    clients=rCl.data||[]; previsions=rPr.data||[];
+    if(periodes.length) curPerId=periodes[periodes.length-1].id;
+    setStatus(true,`Connecté — ${commerciaux.length} commerciaux, ${clients.length} clients`);
+    render();
+  } catch(e) {
+    setStatus(false,'Erreur : '+e.message);
+  } finally {
+    const l=document.getElementById('loader');
+    l.classList.add('hide'); setTimeout(()=>l.remove(),500);
+  }
+}
+
+function setStatus(ok,msg) {
+  document.getElementById('sdot').className='dot '+(ok?'on':'err');
+  document.getElementById('stxt').textContent=msg;
+  document.getElementById('ftxt').textContent=ok?'Connecté à Supabase':'Hors ligne';
+}
+
+/* ─── KPIs ─── */
+function renderKpis() {
+  const pr=previsions.filter(p=>p.periode_id===curPerId);
+  const ok=pr.filter(p=>p.statut==='realise').length;
+  const fw=pr.filter(p=>p.statut==='reporte').length;
+  const ko=pr.filter(p=>p.statut==='annule').length;
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi kb"><div class="kpi-num">${pr.length}</div><div class="kpi-lbl">Dossiers suivis</div></div>
+    <div class="kpi kg"><div class="kpi-num">${ok}</div><div class="kpi-lbl">Ventes réalisées</div></div>
+    <div class="kpi ko"><div class="kpi-num">${fw}</div><div class="kpi-lbl">Reportés M+1</div></div>
+    <div class="kpi kr"><div class="kpi-num">${ko}</div><div class="kpi-lbl">Abandonnés</div></div>`;
+}
+
+/* ─── TABS ─── */
+function renderTabs() {
+  const w=document.getElementById('tabs'); w.innerHTML='';
+  periodes.forEach(p=>{
+    const d=document.createElement('div');
+    d.className='tab'+(p.id===curPerId?' active':'');
+    d.textContent=p.label;
+    d.onclick=()=>{curPerId=p.id;render();};
+    w.appendChild(d);
+  });
+  const a=document.createElement('button');
+  a.className='tab-add'; a.textContent='+'; a.title='Nouveau mois';
+  a.onclick=openModalMois;
+  w.appendChild(a);
+}
+
+/* ─── ACCORDION ─── */
+function cliNom(id) { return clients.find(c=>c.id===id)?.nom_complet||'Client inconnu'; }
+
+function statusLabel(s) {
+  return {prevu:'🔵 Prévu',realise:'✅ Réalisé',reporte:'🔄 Reporté',annule:'❌ Annulé'}[s]||s;
+}
+
+function renderAccordion() {
+  const per=periodes.find(p=>p.id===curPerId);
+  document.getElementById('prev-title').textContent=per?`Mois : ${per.label}`:'';
+  const idx=periodes.findIndex(p=>p.id===curPerId);
+  const prevPer=idx>0?periodes[idx-1]:null;
+  const body=document.getElementById('acc-body'); body.innerHTML='';
+
+  commerciaux.filter(c=>c.actif).forEach(com=>{
+    const dos=previsions.filter(p=>p.commercial_id===com.id&&p.periode_id===curPerId);
+    const rpts=prevPer?previsions.filter(p=>p.commercial_id===com.id&&p.periode_id===prevPer.id&&p.statut==='reporte'):[];
+    const ok=dos.filter(p=>p.statut==='realise').length;
+    const isOpen=openRows.has(com.id);
+
+    // ── Ligne commercial (header) ──
+    const trH=document.createElement('tr');
+    trH.className='com-row'+(isOpen?' open':'');
+    trH.id='com-'+com.id;
+    trH.innerHTML=`
+      <td colspan="5">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;">
+            <span class="com-expand">▶</span>
+            <span class="com-name">${com.nom}${com.prenom?' '+com.prenom:''}</span>
+            ${com.agence?`<span style="font-size:10px;color:var(--muted);margin-left:8px">🏢 ${com.agence}</span>`:''}
+          </div>
+          <div class="com-badges">
+            <span class="badge b-blue">${dos.length} dossier${dos.length>1?'s':''}</span>
+            ${ok>0?`<span class="badge b-green">${ok} réalisé${ok>1?'s':''}</span>`:''}
+            ${rpts.length>0?`<span class="badge b-orange">${rpts.length} report${rpts.length>1?'s':''}</span>`:''}
+            ${isOpen?`<button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="event.stopPropagation();toggleRow('${com.id}')">✕ Fermer</button>`:''}
+          </div>
+        </div>
+      </td>`;
+    trH.onclick=()=>toggleRow(com.id);
+    body.appendChild(trH);
+
+    // ── Reports M-1 (affichés en premier si présents) ──
+    rpts.forEach(r=>{
+      const trR=document.createElement('tr');
+      trR.className='dos-row reporte'+(isOpen?' show':'');
+      trR.dataset.comId=com.id;
+      trR.innerHTML=`
+        <td style="color:var(--orange);font-size:11px;font-style:italic">Reporté de ${prevPer?.label||'M-1'}</td>
+        <td><span style="color:var(--orange);font-weight:500">${cliNom(r.client_id)}</span></td>
+        <td><span class="badge b-orange">→ Ce mois</span></td>
+        <td><span class="badge b-orange">Report M-1</span></td>
+        <td></td>`;
+      body.appendChild(trR);
+    });
+
+    // ── Dossiers actifs ──
+    dos.forEach(d=>{
+      const trD=document.createElement('tr');
+      trD.className=`dos-row ${d.statut}`+(isOpen?' show':'');
+      trD.dataset.comId=com.id;
+      trD.id='dos-'+d.id;
+
+      // Menu clients — uniquement les clients de CE commercial, non déjà pris ce mois
+      const prisIds = new Set(
+        previsions
+          .filter(p => p.periode_id === curPerId && p.client_id && p.id !== d.id)
+          .map(p => p.client_id)
+      );
+      const mesClients = clients.filter(c => c.commercial_id === com.id);
+      let cliOptions = '';
+      if(!mesClients.length) {
+        cliOptions = `<option value="" disabled>Aucun client lié à ${com.nom}</option>`;
+      } else {
+        cliOptions = mesClients.map(c => {
+          const pris = prisIds.has(c.id);
+          return `<option value="${c.id}" ${c.id===d.client_id?'selected':''} ${pris?'disabled':''}>
+            ${c.nom_complet}${pris?' ✗':''}</option>`;
+        }).join('');
+      }
+      const noClient = !d.client_id;
+
+      // Statut — un seul actif à la fois (radio)
+      const statuts = ['prevu','realise','reporte','annule'];
+      const lbls = {prevu:'Prévu', realise:'Réalisé', reporte:'Reporté', annule:'Annulé'};
+      const btnHtml = `<div class="status-group">` + statuts.map(s => `
+        <label class="radio-lbl ${s}${d.statut===s?' active':''}">
+          <input type="radio" name="statut_${d.id}" value="${s}" ${d.statut===s?'checked':''} onchange="changeStatut('${d.id}','${s}',this.closest('label').parentElement)">
+          ${lbls[s]}
+        </label>`).join('') + `</div>`;
+
+      trD.innerHTML=`
+        <td></td>
+        <td>
+          <select class="client-select${noClient?' cli-empty':''}" onchange="changeClient('${d.id}',this.value)">
+            <option value="" ${noClient?'selected':''} style="color:var(--red)">⚠ Sélectionner un client</option>
+            ${cliOptions}
+          </select>
+        </td>
+        <td style="color:var(--muted);font-size:11px">${rpts.find(r=>r.client_id===d.client_id)?'⬅ Report':'—'}</td>
+        <td><div class="status-group">${btnHtml}</div></td>
+        <td style="text-align:right;display:flex;gap:4px;align-items:center;padding:8px 8px;">
+          <button class="btn btn-ghost btn-sm" onclick="window.print()" title="Imprimer">⎙</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteDos('${d.id}')">🗑</button>
+        </td>`;
+      body.appendChild(trD);
+    });
+
+    // ── Bouton + Nouveau dossier ──
+    const trA=document.createElement('tr');
+    trA.className='add-dos-row'+(isOpen?' show':'');
+    trA.dataset.comId=com.id;
+    trA.innerHTML=`<td colspan="5"><button class="add-dos-btn" onclick="addDossier('${com.id}')">+ Ajouter un dossier client</button></td>`;
+    body.appendChild(trA);
+  });
+}
+
+function toggleRow(comId) {
+  if(openRows.has(comId)) openRows.delete(comId);
+  else openRows.add(comId);
+  // Toggle visuellement sans re-render complet
+  const header=document.getElementById('com-'+comId);
+  header.classList.toggle('open', openRows.has(comId));
+  document.querySelectorAll(`[data-com-id="${comId}"]`).forEach(tr=>{
+    tr.classList.toggle('show', openRows.has(comId));
+  });
+}
+
+function toggleAll() {
+  const allIds=commerciaux.filter(c=>c.actif).map(c=>c.id);
+  const allOpen=allIds.every(id=>openRows.has(id));
+  if(allOpen) openRows.clear();
+  else allIds.forEach(id=>openRows.add(id));
+  renderAccordion();
+}
+
+/* ─── CRUD DOSSIERS ─── */
+async function addDossier(comId) {
+  if(!curPerId){toast('⚠️ Aucune période sélectionnée');return;}
+  // Créer un dossier vide sans client (client_id nullable)
+  const {data,error}=await db.from('previsions').insert({
+    commercial_id:comId, periode_id:curPerId,
+    client_id:null, statut:'prevu'
+  }).select().single();
+  if(error){toast('❌ '+error.message);return;}
+  previsions.push(data);
+  openRows.add(comId);
+  renderAccordion(); renderKpis();
+  toast('✅ Dossier créé — sélectionnez un client');
+}
+
+async function changeClient(prevId, clientId) {
+  if(!clientId) return;
+  // Vérifier côté app si client déjà pris ce mois
+  const doublon = previsions.find(p =>
+    p.client_id === clientId &&
+    p.periode_id === curPerId &&
+    p.id !== prevId
+  );
+  if(doublon) {
+    const com = commerciaux.find(c => c.id === doublon.commercial_id);
+    toast(`⚠️ Client déjà attribué à ${com?.nom || 'un autre commercial'} ce mois`);
+    // Remettre l'ancienne valeur
+    const row = document.getElementById('dos-'+prevId);
+    if(row) {
+      const sel = row.querySelector('.client-select');
+      const prev = previsions.find(p => p.id === prevId);
+      if(sel) sel.value = prev?.client_id || '';
+    }
+    return;
+  }
+  const {error} = await db.from('previsions').update({client_id: clientId}).eq('id', prevId);
+  if(error){
+    toast('❌ ' + (error.message.includes('unique') ? 'Ce client est déjà attribué ce mois' : error.message));
+    return;
+  }
+  const p = previsions.find(x => x.id === prevId);
+  if(p) p.client_id = clientId;
+  // Mettre à jour le style du select
+  const row = document.getElementById('dos-'+prevId);
+  if(row){
+    const sel = row.querySelector('.client-select');
+    if(sel) sel.classList.remove('cli-empty');
+  }
+  renderAccordion();
+  renderKpis();
+  toast('✅ Client assigné');
+}
+
+async function changeStatut(prevId, statut, group) {
+  const {error}=await db.from('previsions').update({statut}).eq('id',prevId);
+  if(error){toast('❌ '+error.message);return;}
+  const p=previsions.find(x=>x.id===prevId);
+  if(p) p.statut=statut;
+  // Reset toutes les labels du groupe, activer la bonne
+  group.querySelectorAll('.radio-lbl').forEach(lbl=>{
+    lbl.classList.remove('active');
+    if(lbl.querySelector('input').value===statut) lbl.classList.add('active');
+  });
+  // Mettre à jour couleur bordure gauche de la ligne
+  const tr=document.getElementById('dos-'+prevId);
+  if(tr){
+    const comId=tr.dataset.comId;
+    tr.className='dos-row '+statut+(openRows.has(comId)?' show':'');
+    tr.dataset.comId=comId;
+  }
+  renderKpis();
+  const lbls={prevu:'Prévu',realise:'Réalisé',reporte:'Reporté',annule:'Annulé'};
+  toast(lbls[statut]);
+}
+
+async function deleteDos(prevId) {
+  showConfirm('Supprimer ce dossier ?', async()=>{
+    const {error}=await db.from('previsions').delete().eq('id',prevId);
+    if(error){toast('❌ '+error.message);return;}
+    previsions=previsions.filter(p=>p.id!==prevId);
+    renderAccordion(); renderKpis();
+    toast('🗑️ Dossier supprimé');
+  });
+}
+
+/* ─── RENDER GLOBAL ─── */
+function render() { renderKpis(); renderTabs(); renderAccordion(); }
+
+/* ─── CLIENTS GRID ─── */
+function renderCliGrid(list) {
+  list=list||clients;
+  document.getElementById('cli-count').textContent=`${list.length} client${list.length>1?'s':''} dans la base`;
+  const grid=document.getElementById('cli-grid'); grid.innerHTML='';
+  if(!list.length){
+    grid.innerHTML=`<div class="empty"><div class="empty-icon">👤</div><div class="empty-title">Aucun client — cliquez "+ Nouveau client"</div></div>`;
+    return;
+  }
+  list.forEach(c=>{
+    const nb=previsions.filter(p=>p.client_id===c.id).length;
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML=`
+      <div class="card-top">
+        <div><div class="card-nom">${c.nom_complet}</div><div class="card-sub">${c.telephone||c.email||'—'}</div></div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" onclick="editClient('${c.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}','${c.nom_complet.replace(/'/g,"\\'")}')">🗑</button>
+        </div>
+      </div>
+      <div class="card-meta">
+        <span class="badge b-gray">${c.type_contact||'particulier'}</span>
+        <span class="badge ${srcBadge(c.source)}">${(c.source||'—').replace('_',' ')}</span>
+        ${c.agence?`<span class="badge b-gray">${c.agence}</span>`:''}
+        ${nb>0?`<span class="badge b-blue">${nb} dossier${nb>1?'s':''}</span>`:''}
+        ${c.commercial_id?`<span class="badge b-green">👤 ${commerciaux.find(x=>x.id===c.commercial_id)?.nom||'—'}</span>`:''}
+      </div>
+      ${c.projet?`<div class="card-info" style="margin-top:7px">🏠 ${c.projet}</div>`:''}`;
+    grid.appendChild(card);
+  });
+}
+
+function srcBadge(s){return{direct:'b-green',agence_partenaire:'b-blue',recommandation:'b-orange',porte_ouverte:'b-orange',web:'b-blue',keldom:'b-blue'}[s]||'b-gray';}
+
+function filterClients(){
+  const q=document.getElementById('s-cli').value.toLowerCase();
+  const src=document.getElementById('f-src').value;
+  const typ=document.getElementById('f-typ').value;
+  renderCliGrid(clients.filter(c=>{
+    return (!q||c.nom_complet.toLowerCase().includes(q)||(c.agence||'').toLowerCase().includes(q))
+      &&(!src||c.source===src)&&(!typ||c.type_contact===typ);
+  }));
+}
+
+/* ─── COMMERCIAUX GRID ─── */
+function renderComGrid(list){
+  list=list||commerciaux;
+  document.getElementById('com-count').textContent=`${list.length} commercial${list.length>1?'s':''}`;
+  const grid=document.getElementById('com-grid'); grid.innerHTML='';
+  if(!list.length){grid.innerHTML=`<div class="empty"><div class="empty-icon">🏷️</div><div class="empty-title">Aucun commercial</div></div>`;return;}
+  list.forEach(c=>{
+    const nb=previsions.filter(p=>p.commercial_id===c.id).length;
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML=`
+      <div class="card-top">
+        <div><div class="card-nom">${c.nom}${c.prenom?' '+c.prenom:''}</div><div class="card-sub">${c.email||c.telephone||'—'}</div></div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" onclick="editCom('${c.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCom('${c.id}','${c.nom.replace(/'/g,"\\'")}')">🗑</button>
+        </div>
+      </div>
+      <div class="card-meta">
+        <span class="badge ${c.actif?'b-green':'b-gray'}">${c.actif?'Actif':'Inactif'}</span>
+        <span class="badge b-blue">${nb} dossier${nb>1?'s':''}</span>
+        ${c.agence?`<span class="badge b-gray">🏢 ${c.agence}</span>`:''}
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+function filterCom(){const q=document.getElementById('s-com').value.toLowerCase();renderComGrid(commerciaux.filter(c=>!q||(c.nom+' '+(c.prenom||'')).toLowerCase().includes(q)));}
+
+/* ─── MODAL CLIENT ─── */
+let cliCB=null;
+function populateComSelect(selectedId) {
+  const sel=document.getElementById('cli-commercial');
+  sel.innerHTML='<option value="">— Aucun —</option>';
+  commerciaux.filter(c=>c.actif).forEach(c=>{
+    const opt=document.createElement('option');
+    opt.value=c.id; opt.textContent=c.nom+(c.prenom?' '+c.prenom:'');
+    if(c.id===selectedId) opt.selected=true;
+    sel.appendChild(opt);
+  });
+}
+function openModalClient(prefill,cb){
+  cliCB=cb||null;
+  document.getElementById('cli-modal-title').textContent='Nouveau client';
+  document.getElementById('cli-id').value='';
+  document.getElementById('cli-nom').value=prefill||'';
+  ['cli-tel','cli-email','cli-agence','cli-projet','cli-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cli-type').value='particulier';
+  document.getElementById('cli-src').value='direct';
+  populateComSelect(null);
+  document.getElementById('ov-cli').classList.add('on');
+  setTimeout(()=>document.getElementById('cli-nom').focus(),100);
+}
+function editClient(id){
+  const c=clients.find(x=>x.id===id);if(!c)return;
+  document.getElementById('cli-modal-title').textContent='Modifier le client';
+  document.getElementById('cli-id').value=c.id;
+  document.getElementById('cli-nom').value=c.nom_complet||'';
+  document.getElementById('cli-tel').value=c.telephone||'';
+  document.getElementById('cli-email').value=c.email||'';
+  document.getElementById('cli-type').value=c.type_contact||'particulier';
+  document.getElementById('cli-src').value=c.source||'direct';
+  document.getElementById('cli-agence').value=c.agence||'';
+  document.getElementById('cli-projet').value=c.projet||'';
+  document.getElementById('cli-notes').value=c.notes||'';
+  populateComSelect(c.commercial_id||null);
+  document.getElementById('ov-cli').classList.add('on');
+}
+function closeModalClient(){document.getElementById('ov-cli').classList.remove('on');cliCB=null;}
+async function saveClient(){
+  const nom=document.getElementById('cli-nom').value.trim();
+  if(!nom){toast('⚠️ Nom requis');return;}
+  const id=document.getElementById('cli-id').value;
+  // Vérifier doublon de nom (insensible à la casse)
+  const doublon=clients.find(c=>
+    c.nom_complet.toLowerCase()===nom.toLowerCase() && c.id!==id
+  );
+  if(doublon){toast('⚠️ Un client avec ce nom existe déjà');return;}
+  const comVal=document.getElementById('cli-commercial').value;
+  const payload={nom_complet:nom,telephone:document.getElementById('cli-tel').value.trim()||null,email:document.getElementById('cli-email').value.trim()||null,type_contact:document.getElementById('cli-type').value,source:document.getElementById('cli-src').value,agence:document.getElementById('cli-agence').value.trim()||null,projet:document.getElementById('cli-projet').value.trim()||null,notes:document.getElementById('cli-notes').value.trim()||null,commercial_id:comVal||null};
+  if(id){
+    const {error}=await db.from('clients').update(payload).eq('id',id);
+    if(error){toast('❌ '+error.message);return;}
+    const i=clients.findIndex(c=>c.id===id);if(i>=0)clients[i]={...clients[i],...payload};
+
+    toast('✅ Client mis à jour');
+  } else {
+    const {data,error}=await db.from('clients').insert(payload).select().single();
+    if(error){toast('❌ '+error.message);return;}
+    clients.push(data);
+    toast('✅ '+data.nom_complet+' ajouté');
+    if(cliCB){closeModalClient();cliCB(data);return;}
+  }
+  closeModalClient();
+  setStatus(true,`Connecté — ${commerciaux.length} commerciaux, ${clients.length} clients`);
+  if(curPage==='clients')renderCliGrid();
+  if(curPage==='prev')renderAccordion();
+}
+function deleteClient(id,nom){showConfirm(`Supprimer "${nom}" ?`,async()=>{const {error}=await db.from('clients').delete().eq('id',id);if(error){toast('❌ '+error.message);return;}clients=clients.filter(c=>c.id!==id);renderCliGrid();toast('🗑️ Supprimé');});}
+
+/* ─── MODAL COMMERCIAL ─── */
+function openModalCom(){
+  document.getElementById('com-modal-title').textContent='Nouveau commercial';
+  document.getElementById('com-id').value='';
+  ['com-nom','com-prenom','com-tel','com-email','com-agence'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('com-actif').value='true';
+  document.getElementById('ov-com').classList.add('on');
+}
+function editCom(id){
+  const c=commerciaux.find(x=>x.id===id);if(!c)return;
+  document.getElementById('com-modal-title').textContent='Modifier';
+  document.getElementById('com-id').value=c.id;
+  document.getElementById('com-nom').value=c.nom||'';
+  document.getElementById('com-prenom').value=c.prenom||'';
+  document.getElementById('com-tel').value=c.telephone||'';
+  document.getElementById('com-email').value=c.email||'';
+  document.getElementById('com-agence').value=c.agence||'';
+  document.getElementById('com-actif').value=String(c.actif);
+  document.getElementById('ov-com').classList.add('on');
+}
+function closeModalCom(){document.getElementById('ov-com').classList.remove('on');}
+async function saveCom(){
+  const nom=document.getElementById('com-nom').value.trim();
+  if(!nom){toast('⚠️ Nom requis');return;}
+  const id=document.getElementById('com-id').value;
+  const payload={nom,prenom:document.getElementById('com-prenom').value.trim()||null,telephone:document.getElementById('com-tel').value.trim()||null,email:document.getElementById('com-email').value.trim()||null,agence:document.getElementById('com-agence').value.trim()||null,actif:document.getElementById('com-actif').value==='true'};
+  if(id){
+    const {error}=await db.from('commerciaux').update(payload).eq('id',id);
+    if(error){toast('❌ '+error.message);return;}
+    const i=commerciaux.findIndex(c=>c.id===id);if(i>=0)commerciaux[i]={...commerciaux[i],...payload};
+    toast('✅ Mis à jour');
+  } else {
+    const {data,error}=await db.from('commerciaux').insert(payload).select().single();
+    if(error){toast('❌ '+error.message);return;}
+    commerciaux.push(data);toast('✅ '+data.nom+' ajouté');
+  }
+  closeModalCom();renderComGrid();renderAccordion();
+}
+function deleteCom(id,nom){showConfirm(`Supprimer "${nom}" ?`,async()=>{const {error}=await db.from('commerciaux').delete().eq('id',id);if(error){toast('❌ '+error.message);return;}commerciaux=commerciaux.filter(c=>c.id!==id);renderComGrid();renderAccordion();toast('🗑️ Supprimé');});}
+
+/* ─── MODAL MOIS ─── */
+function openModalMois(){
+  selMois=null;
+  const grid=document.getElementById('month-grid');grid.innerHTML='';
+  const curY=new Date().getFullYear();
+  const used=periodes.map(p=>p.mois+'-'+p.annee);
+  ALL_MONTHS.forEach((m,i)=>{
+    const key=(i+1)+'-'+curY;
+    const d=document.createElement('div');
+    d.className='m-opt'+(used.includes(key)?' used':'');
+    d.textContent=m.substring(0,4);d.title=m+' '+curY;
+    d.onclick=()=>{document.querySelectorAll('.m-opt').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');selMois={mois:i+1,annee:curY,label:m+' '+curY};};
+    grid.appendChild(d);
+  });
+  document.getElementById('ov-mois').classList.add('on');
+}
+function closeModalMois(){document.getElementById('ov-mois').classList.remove('on');}
+async function confirmMois(){
+  if(!selMois){toast('⚠️ Sélectionnez un mois');return;}
+  const {data,error}=await db.from('periodes').insert(selMois).select().single();
+  if(error){toast('❌ '+error.message);return;}
+  periodes.push(data);curPerId=data.id;closeModalMois();render();toast('✅ '+data.label+' ajouté');
+}
+
+/* ─── CONFIRM ─── */
+function showConfirm(msg,cb){document.getElementById('confirm-msg').textContent=msg;confirmCB=cb;document.getElementById('ov-confirm').classList.add('on');}
+function closeConfirm(){document.getElementById('ov-confirm').classList.remove('on');confirmCB=null;}
+document.getElementById('confirm-ok').onclick=()=>{if(confirmCB)confirmCB();closeConfirm();};
+
+/* ─── EXPORT ─── */
+function doExport(){
+  const per=periodes.find(p=>p.id===curPerId);if(!per)return;
+  let csv='Commercial,Client,Statut,Source,Période\n';
+  previsions.filter(p=>p.periode_id===curPerId).forEach(p=>{
+    const com=commerciaux.find(c=>c.id===p.commercial_id);
+    const cli=clients.find(c=>c.id===p.client_id);
+    csv+=[com?.nom||'',cli?.nom_complet||'',p.statut,cli?.source||'',per.label].map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(',')+'\n';
+  });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`Previsionnel_${per.label.replace(' ','_')}_BETERBAT.csv`;
+  a.click();
+}
+
+/* ─── TOAST ─── */
+let tt;
+function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('on'),2400);}
+
+/* ─── CLOSE OVERLAYS ─── */
+['ov-cli','ov-com','ov-mois','ov-confirm'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{if(e.target.id===id){if(id==='ov-confirm')closeConfirm();else document.getElementById(id).classList.remove('on');}});
+});
+
+init();
+</script>
+</body>
+</html>
