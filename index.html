@@ -475,10 +475,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 <script>
 document.getElementById('yr').textContent = new Date().getFullYear();
 
-const ENV = window.__ENV__ || {};
-const SURL = ENV.NEXT_PUBLIC_SUPABASE_URL || '';
-const SKEY = ENV.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const db = SURL && SKEY ? supabase.createClient(SURL, SKEY) : null;
+const SURL = 'https://mfcabsshwymaudbkcuoc.supabase.co';
+const SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mY2Fic3Nod3ltYXVkYmtjdW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTg4NDIsImV4cCI6MjA4OTE5NDg0Mn0.Q8HPOXpaar1vZ7Cjey-rE9-uMZ7XgNoZHw3Tbi5J2Fg';
+const db = supabase.createClient(SURL, SKEY);
 
 function hasDb() {
   if (db) return true;
