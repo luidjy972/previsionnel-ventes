@@ -475,13 +475,24 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 <script>
 document.getElementById('yr').textContent = new Date().getFullYear();
 
-const SURL = 'https://mfcabsshwymaudbkcuoc.supabase.co';
-const SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mY2Fic3Nod3ltYXVkYmtjdW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTg4NDIsImV4cCI6MjA4OTE5NDg0Mn0.Q8HPOXpaar1vZ7Cjey-rE9-uMZ7XgNoZHw3Tbi5J2Fg';
-const db = supabase.createClient(SURL, SKEY);
+const ENV = window.__ENV__ || {};
+const SURL = String(ENV.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+const SKEY = String(ENV.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+const db = (SURL && SKEY) ? supabase.createClient(SURL, SKEY) : null;
+
+function missingEnvVars() {
+  const missing = [];
+  if (!SURL) missing.push('NEXT_PUBLIC_SUPABASE_URL');
+  if (!SKEY) missing.push('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  return missing;
+}
 
 function hasDb() {
   if (db) return true;
-  const msg = 'Configuration Supabase manquante (URL/clé anon).';
+  const missing = missingEnvVars();
+  const msg = missing.length
+    ? `Variables d'environnement manquantes sur Vercel: ${missing.join(' et ')}.`
+    : 'Configuration Supabase invalide.';
   showLoginError(msg);
   setStatus(false, msg);
   const l = document.getElementById('loader');
@@ -492,28 +503,63 @@ function hasDb() {
   return false;
 }
 
+function formatAuthError(error) {
+  if (!error) return 'Connexion impossible';
+  if (error.code === 'invalid_credentials') {
+    return 'Email ou mot de passe incorrect, ou utilisateur inexistant dans Supabase Auth.';
+  }
+  if (error.code === 'email_not_confirmed') {
+    return 'Email non confirme. Verifiez votre boite mail puis confirmez le compte.';
+  }
+  const raw = String(error.message || '').toLowerCase();
+  if (raw.includes('cors') || raw.includes('failed to fetch') || raw.includes('network')) {
+    return 'Connexion au service impossible (reseau/CORS). Verifiez l URL Supabase et les reglages navigateur.';
+  }
+  return error.message || 'Connexion impossible';
+}
+
+function formatDbError(error) {
+  if (!error) return 'Erreur inconnue';
+  const raw = String(error.message || '').toLowerCase();
+  if (raw.includes('row-level security') || raw.includes('permission denied') || raw.includes('not allowed')) {
+    return 'Acces refuse par les regles Supabase (RLS/permissions).';
+  }
+  if (raw.includes('cors') || raw.includes('failed to fetch') || raw.includes('network')) {
+    return 'Requete bloquee (reseau/CORS). Verifiez la configuration Supabase et l acces internet.';
+  }
+  return error.message || 'Erreur inconnue';
+}
+
 /* ─── AUTH ─── */
 async function doLogin() {
   if(!hasDb()) return;
   const email = document.getElementById('login-email').value.trim();
   const pwd   = document.getElementById('login-pwd').value;
-  const errEl = document.getElementById('login-error');
   const btn   = document.getElementById('login-btn');
   if(!email || !pwd) { showLoginError('Veuillez remplir tous les champs'); return; }
+  showLoginError('');
+  document.getElementById('login-error').style.display = 'none';
   btn.textContent = 'Connexion…'; btn.disabled = true;
   const { error } = await db.auth.signInWithPassword({ email, password: pwd });
   if(error) {
-    showLoginError('Email ou mot de passe incorrect');
-    btn.textContent = 'Se connecter'; btn.disabled = false;
+    const msg = formatAuthError(error);
+    showLoginError(msg);
   } else {
     document.getElementById('login-screen').style.display = 'none';
     init();
   }
+  btn.textContent = 'Se connecter'; btn.disabled = false;
 }
 
 function showLoginError(msg) {
   const el = document.getElementById('login-error');
-  el.textContent = msg; el.style.display = 'block';
+  if (!msg) {
+    el.textContent = '';
+    el.style.display = 'none';
+    return;
+  }
+  el.textContent = msg;
+  el.style.display = 'block';
 }
 
 async function doLogout() {
@@ -567,7 +613,7 @@ async function init() {
     setStatus(true,`Connecté — ${commerciaux.length} commerciaux, ${clients.length} clients`);
     render();
   } catch(e) {
-    setStatus(false,'Erreur : '+e.message);
+    setStatus(false, 'Erreur : ' + formatDbError(e));
   } finally {
     const l=document.getElementById('loader');
     l.classList.add('hide'); setTimeout(()=>l.remove(),500);
@@ -1066,4 +1112,8 @@ function toast(m){const e=document.getElementById('toast');e.textContent=m;e.cla
 
 /* ─── CLOSE OVERLAYS ─── */
 ['ov-cli','ov-com','ov-mois','ov-confirm'].forEach(id=>{
-  document.getElementById(id).addEventListener('click',e=>{if(e.target.id===id){if(id==='ov-confirm')closeConfirm();else document.getElementById(id).c
+  document.getElementById(id).addEventListener('click',e=>{if(e.target.id===id){if(id==='ov-confirm')closeConfirm();else document.getElementById(id).classList.remove('on');}});
+});
+</script>
+</body>
+</html>
