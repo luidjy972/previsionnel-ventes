@@ -1,0 +1,23 @@
+{
+  "name": "previsionnel-ventes",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "restart": "npm run stop && npm start",
+    "start": "node server.js",
+    "stop": "node scripts/stop-server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.100.1",
+    "dotenv": "^17.3.1",
+    "vercel": "^50.37.3"
+  }
+}
