@@ -53,14 +53,63 @@ body{background:var(--bg)!important;color:var(--text);font-family:'DM Sans',sans
 .page.active{display:block;}
 
 /* BTNS */
-.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap;}
-.btn-ghost{background:transparent;color:var(--dim);border:1px solid var(--border2);}
-.btn-ghost:hover{border-color:var(--gold);color:var(--gold-light);}
-.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold-light));color:#ffffff;font-weight:600;box-shadow:0 2px 12px rgba(181,106,117,.28);}
-.btn-gold:hover{background:linear-gradient(135deg,var(--gold-light),var(--gold));}
+/* BOUTONS - style CRM */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  transition: all .15s;
+  white-space: nowrap;
+}
+
+/* Bouton principal bleu */
+.btn-gold {
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: none;
+}
+.btn-gold:hover { background: #1d4ed8; }
+
+/* Bouton danger rouge */
+.btn-danger {
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+}
+.btn-danger:hover { background: #b91c1c; }
+
+/* Bouton secondaire (Publipostage, Mailing, Import) */
+.btn-ghost {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+}
+.btn-ghost:hover { background: #1d4ed8; }
+
+/* Petit bouton + bleu (filtre) */
+.btn-add-filter {
+  background: #2563eb;
+  color: #fff;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border: none;
+  cursor: pointer;
+}
+.btn-add-filter:hover { background: #1d4ed8; }
 .btn-sm{padding:3px 9px;font-size:11px;}
-.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd);}
-.btn-danger:hover{background:var(--red);color:#fff;}
 .btn-status{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;font-family:'DM Sans',sans-serif;}
 .btn-status.prevu{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bd);}
 .btn-status.prevu:hover{background:var(--blue);color:#fff;}
